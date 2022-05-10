@@ -15,7 +15,9 @@ from transformers import AutoTokenizer
 
 _relation_labels = {'Direct': 0, 'Indirect': 1, 'Neither': 2, 'Not Relevant': 3}
 
+
 def get_dataset(dataset, data_file, tokenizer_name, max_len):
+    """Dataset loader method"""
     if dataset == "relation_dataset":
         return RelationDataset(data_file=data_file, tokenizer_name=tokenizer_name, max_len=max_len)
     elif dataset == "similarity_dataset":
@@ -25,6 +27,11 @@ def get_dataset(dataset, data_file, tokenizer_name, max_len):
 
 
 class BaseDataset(Dataset):
+    """Base dataset for 2022 n2c2 Track 3
+
+    This dataset module loads the data file and a transformer tokenizer. The
+    dataset is not complete in that the input tokenization is not performed.
+    """
     def __init__(self, data_file, tokenizer_name, max_len):
         self.data_file = data_file
         self.tokenizer_name = tokenizer_name
@@ -67,6 +74,7 @@ class BaseDataset(Dataset):
 
 
 class RelationDataset(BaseDataset):
+    """A dataset for 2022 n2c2 Track 3. Sentence pair classification version"""
     def __init__(self, data_file, tokenizer_name, max_len):
         super().__init__(data_file, tokenizer_name, max_len)
 
@@ -89,6 +97,8 @@ class RelationDataset(BaseDataset):
 
 
 class SimilarityDataset(BaseDataset):
+    """A dataset for 2022 n2c2 Track 3. Sentence similarity classification
+    version"""
     def __init__(self, data_file, tokenizer_name, max_len):
         super().__init__(data_file, tokenizer_name, max_len)
 

@@ -22,6 +22,11 @@ def get_model(model, bert_name, num_cls_layers):
 
 
 class BertBase(nn.Module):
+    """Base model class for 2022 n2c2 Track 3.
+
+    This module load a transformer BERT model and defines some methods that are
+    shared among other models.
+    """
     def __init__(self, bert_name):
         super().__init__()
         self.bert_name = bert_name
@@ -44,6 +49,7 @@ class BertBase(nn.Module):
 
 
 class BertSentenceRelation(BertBase):
+    """A sentence pair classification model for 2022 n2c2 Track 3"""
     def __init__(self, bert_name, num_cls_layers):
         super().__init__(bert_name)
 
@@ -69,6 +75,7 @@ class BertSentenceRelation(BertBase):
 
 
 class BertSentenceSimilarity(BertBase):
+    """A sentence similarity classification model for 2022 n2c2 Track 3"""
     def __init__(self, bert_name, num_cls_layers):
         super().__init__(bert_name)
 
