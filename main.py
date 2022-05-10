@@ -62,6 +62,7 @@ print('\n'.join([f'\t{k}: {v}' for k, v in vars(args).items()]))
 
 
 def set_lr(self, lr):
+    """Setting lr on each param group (override on a fairseq optimizer) """
     for param_group in self.optimizer.param_groups:
         if 'lr_factor' in param_group:
             param_group['lr'] = lr * param_group['lr_factor']
@@ -69,8 +70,8 @@ def set_lr(self, lr):
             param_group['lr'] = lr
 
 
-
 def get_epoch_results(model, test_dataloader):
+    """Perform the model forward on the whole epoch."""
     results = []
     for batch_test in tqdm(test_dataloader):
         if args.gpu:
@@ -200,6 +201,7 @@ def main():
 
             duration = time.time() - start_time
 
+            # Print the training progress per display_iter steps
             if global_step % args.display_iter == 0:
                 examples_per_sec = args.batch_size / duration
                 train_acc = np.mean(np.argmax(output_logits.detach().cpu().numpy(), axis=1) == batch_train['label'].cpu().numpy())
@@ -211,6 +213,7 @@ def main():
                 print_str += f', lr={optimizer.get_lr():g} ({examples_per_sec:.1f} it/s, {duration:.3f} s/batch)'
                 print(print_str)
 
+            # Evaluate on dev dataset + save model ckpt per eval_iter steps
             if (global_step % args.eval_iter == 0 and global_step > init_step) or global_step == args.training_step - 1:
                 model.eval()
 
@@ -250,6 +253,7 @@ def main():
             test_acc = np.mean(np.argmax(test_logits, axis=1) == test_labels)
             print(f'{datetime.now()}: (test)  step {global_step:7}, loss: {test_loss.cpu():.6f}, acc={test_acc:.4f}')
 
+        # Save the eval results
         test_name = os.path.splitext(args.test_file)[0]
         test_result_fname = f'results_{test_name}_{global_step}.pkl'
         if not os.path.exists(args.output_dir):
