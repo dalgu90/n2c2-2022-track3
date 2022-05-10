@@ -223,7 +223,7 @@ def main():
                     dev_labels = np.array([r['label'] for r in dev_results])
                     dev_loss = criteria(torch.tensor(dev_logits), torch.tensor(dev_labels))
                     dev_acc = np.mean(np.argmax(dev_logits, axis=1) == dev_labels)
-                    print(f'{datetime.now()}: (dev)   step {global_step:7}, loss: {dev_loss.cpu():.6f}, acc={dev_acc:.4f}')
+                    print(f'{datetime.now()}: (dev)   step {global_step:7}, loss={dev_loss.cpu():.6f}, acc={dev_acc:.4f}')
                     writer.add_scalar('dev/loss', float(dev_loss.cpu()), global_step)
                     writer.add_scalar('dev/accuracy', dev_acc, global_step)
                     writer.flush()
@@ -251,7 +251,7 @@ def main():
             test_labels = np.array([r['label'] for r in test_results])
             test_loss = criteria(torch.tensor(test_logits), torch.tensor(test_labels))
             test_acc = np.mean(np.argmax(test_logits, axis=1) == test_labels)
-            print(f'{datetime.now()}: (test)  step {global_step:7}, loss: {test_loss.cpu():.6f}, acc={test_acc:.4f}')
+            print(f'{datetime.now()}: (test)  step {global_step:7}, loss={test_loss.cpu():.6f}, acc={test_acc:.4f}')
 
         # Save the eval results
         test_name = os.path.splitext(args.test_file)[0]
