@@ -7,6 +7,12 @@ max_len=384
 #exp_name="sent_rel_BioClinicalBERT"
 #bert_name="emilyalsentzer/Bio_ClinicalBERT"
 #max_len=384
+#exp_name="sent_rel_BlueBERT-Base"
+#bert_name="bionlp/bluebert_pubmed_mimic_uncased_L-12_H-768_A-12"
+#max_len=384
+#exp_name="sent_rel_BlueBERT-Large"
+#bert_name="bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
+#max_len=384
 
 #init_ckpt="9999.pkl"
 #init_step=9999
