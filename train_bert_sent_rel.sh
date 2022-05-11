@@ -1,6 +1,11 @@
 #!/bin/bash
 #export CUDA_VISIBLE_DEVICES=0
 
+data_name="N2C2-Track3-May3"
+
+data_pseudonymize=false
+#data_pseudonymize=true
+
 exp_name="sent_rel_PubMedBERT"
 bert_name="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 max_len=384
@@ -14,9 +19,14 @@ max_len=384
 #bert_name="bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 #max_len=384
 
+if [ "$data_pseudonymize" = true ]; then
+    data_name="${data_name}_pseudo"
+    exp_name="${exp_name}_pseudo"
+fi
+
 python main.py \
     --dataset="relation_dataset" \
-    --data_dir="data/N2C2-Track3-May3" \
+    --data_dir="data/${data_name}" \
     --train_file="train.csv" \
     --dev_file="dev.csv" \
     --tokenizer_name=$bert_name \

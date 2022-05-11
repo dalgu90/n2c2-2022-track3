@@ -144,3 +144,7 @@ logs/*.log
 # Dataset CSV files
 data/*
 !data/static
+
+# Pseudonymization
+scripts/pseudo_in/
+scripts/pseudo_out/
