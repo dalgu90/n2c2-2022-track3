@@ -229,6 +229,7 @@ def main():
                     print(f'{datetime.now()}: (dev)   step {global_step:7}, loss={dev_loss.cpu():.6f}, acc={dev_acc:.4f}, macro_f1={dev_macro_f1:.4f}')
                     writer.add_scalar('dev/loss', float(dev_loss.cpu()), global_step)
                     writer.add_scalar('dev/accuracy', dev_acc, global_step)
+                    writer.add_scalar('dev/macro_f1', dev_macro_f1, global_step)
                     writer.flush()
 
                 save_ckpt_fname = ckpt_manager.save_ckpt(model, global_step)
