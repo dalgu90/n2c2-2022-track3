@@ -12,6 +12,7 @@ import types
 import fairseq
 import numpy as np
 import torch
+import sklearn.metrics
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -221,9 +222,11 @@ def main():
                     dev_results = get_epoch_results(model, dev_dataloader)
                     dev_logits = np.array([r['logits'] for r in dev_results])
                     dev_labels = np.array([r['label'] for r in dev_results])
+                    dev_preds = np.argmax(dev_logits, axis=1)
                     dev_loss = criteria(torch.tensor(dev_logits), torch.tensor(dev_labels))
-                    dev_acc = np.mean(np.argmax(dev_logits, axis=1) == dev_labels)
-                    print(f'{datetime.now()}: (dev)   step {global_step:7}, loss={dev_loss.cpu():.6f}, acc={dev_acc:.4f}')
+                    dev_acc = np.mean(dev_preds == dev_labels)
+                    dev_macro_f1 = sklearn.metrics.f1_score(y_true=dev_labels, y_pred=dev_preds, average='macro')
+                    print(f'{datetime.now()}: (dev)   step {global_step:7}, loss={dev_loss.cpu():.6f}, acc={dev_acc:.4f}, macro_f1={dev_macro_f1:.4f}')
                     writer.add_scalar('dev/loss', float(dev_loss.cpu()), global_step)
                     writer.add_scalar('dev/accuracy', dev_acc, global_step)
                     writer.flush()
@@ -249,9 +252,11 @@ def main():
             test_results = get_epoch_results(model, test_dataloader)
             test_logits = np.array([r['logits'] for r in test_results])
             test_labels = np.array([r['label'] for r in test_results])
+            test_preds = np.argmax(test_logits, axis=1)
             test_loss = criteria(torch.tensor(test_logits), torch.tensor(test_labels))
-            test_acc = np.mean(np.argmax(test_logits, axis=1) == test_labels)
-            print(f'{datetime.now()}: (test)  step {global_step:7}, loss={test_loss.cpu():.6f}, acc={test_acc:.4f}')
+            test_acc = np.mean(test_preds == test_labels)
+            test_macro_f1 = sklearn.metrics.f1_score(y_true=test_labels, y_pred=test_preds, average='macro')
+            print(f'{datetime.now()}: (test)  step {global_step:7}, loss={test_loss.cpu():.6f}, acc={test_acc:.4f}, macro_f1={test_macro_f1:.4f}')
 
         # Save the eval results
         test_name = os.path.splitext(args.test_file)[0]
