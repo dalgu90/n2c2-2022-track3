@@ -1,11 +1,12 @@
 #!/bin/bash
 #export CUDA_VISIBLE_DEVICES=0
 
+# Dataset
 data_name="N2C2-Track3-May3"
+#data_pseudonymize=false
+data_pseudonymize=true
 
-data_pseudonymize=false
-#data_pseudonymize=true
-
+# Base BERT
 exp_name="sent_rel_PubMedBERT"
 bert_name="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 max_len=384
