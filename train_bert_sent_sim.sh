@@ -14,10 +14,10 @@ weight_sharing=false
 # Base BERT
 exp_name="sent_sim_PubMedBERT"
 bert_name="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
-max_len=256
+batch_size=32
 #exp_name="sent_sim_BioClinicalBERT"
 #bert_name="emilyalsentzer/Bio_ClinicalBERT"
-#max_len=256
+#batch_size=32
 
 if [ "$data_pseudonymize" = true ]; then
     data_name="${data_name}_pseudo"
@@ -38,9 +38,9 @@ python main.py \
     --model=$model \
     --bert_name=$bert_name \
     --output_dir="results/${exp_name}" \
-    --max_len=$max_len \
+    --max_len=384 \
     --train_bert \
-    --batch_size=32 \
+    --batch_size=$batch_size \
     --training_step=10000 \
     --lr=0.0001 \
     --warmup_updates=1000 \

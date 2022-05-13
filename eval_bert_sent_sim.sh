@@ -16,10 +16,8 @@ weight_sharing=false
 # Base BERT
 exp_name="sent_sim_PubMedBERT"
 bert_name="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
-max_len=256
 #exp_name="sent_sim_BioClinicalBERT"
 #bert_name="emilyalsentzer/Bio_ClinicalBERT"
-#max_len=256
 
 if [ "$data_pseudonymize" = true ]; then
     data_name="${data_name}_pseudo"
@@ -31,8 +29,8 @@ if [ "$weight_sharing" = false ]; then
     exp_name="${exp_name/_sim/_sim2}"
 fi
 
-#init_ckpt="9999.pkl"
 #init_step=9999
+#init_ckpt="ckpt-${init_step}.pkl"
 
 python main.py \
     --test \
@@ -43,7 +41,7 @@ python main.py \
     --model=$model \
     --bert_name=$bert_name \
     --output_dir="results/${exp_name}" \
-    --max_len=$max_len \
+    --max_len=256 \
     --batch_size=16 \
     --gpu \
     #--init_ckpt=$init_ckpt \
