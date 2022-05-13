@@ -139,7 +139,7 @@ def main():
     ckpt_manager = CheckPointManager(args.output_dir)
     if args.init_ckpt is not None:
         print(f'Load model ckpt from {args.init_ckpt} (step {args.init_step})')
-        model.load_state_dict(torch.load(args.init_ckpt))
+        model.load_state_dict(torch.load(os.path.join(args.output_dir, args.init_ckpt)))
         init_step = args.init_step
     else:
         ckpt_status = ckpt_manager.get_latest_checkpoint()
