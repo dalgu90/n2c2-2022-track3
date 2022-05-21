@@ -38,7 +38,7 @@ python main.py \
     --model=$model \
     --bert_name=$bert_name \
     --output_dir="results/${exp_name}" \
-    --max_len=384 \
+    --max_len=256 \
     --train_bert \
     --batch_size=$batch_size \
     --training_step=10000 \
