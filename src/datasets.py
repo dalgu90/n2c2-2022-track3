@@ -80,15 +80,16 @@ class RelationDataset(BaseDataset):
 
     def _add_input_tokens(self, example, row):
         # Add assessment and plan in one sentence
-        example['input'] = self.tokenizer.encode(
+        example['input_ids'] = self.tokenizer.encode(
             row['Assessment'], row['Plan Subsection'], add_special_tokens=True
         )[:self.max_len]
 
     def collate_fn(self, examples):
-        max_input_len = max([len(e['input']) for e in examples])
+        max_input_len = max([len(e['input_ids']) for e in examples])
         for e in examples:
-            padding = max_input_len - len(e['input'])
-            e['input'] += [self.tokenizer.pad_token_id] * padding
+            padding = max_input_len - len(e['input_ids'])
+            e['attention_mask'] = [1] * len(e['input_ids']) + [0] * padding
+            e['input_ids'] += [self.tokenizer.pad_token_id] * padding
 
         batch = {}
         for k in examples[0].keys():
@@ -107,21 +108,25 @@ class SimilarityDataset(BaseDataset):
         assessment = self.tokenizer.encode(
             row['Assessment'], add_special_tokens=True
         )[:self.max_len]
-        example['assessment'] = assessment
+        example['input_ids_assessment'] = assessment
         plan = self.tokenizer.encode(
             row['Plan Subsection'], add_special_tokens=True
         )[:self.max_len]
-        example['plan'] = plan
+        example['input_ids_plan'] = plan
 
     def collate_fn(self, examples):
-        max_assess_len = max([len(e['assessment']) for e in examples])
+        max_assess_len = max([len(e['input_ids_assessment']) for e in examples])
         for e in examples:
-            padding = max_assess_len - len(e['assessment'])
-            e['assessment'] += [self.tokenizer.pad_token_id] * padding
-        max_plan_len = max([len(e['plan']) for e in examples])
+            padding = max_assess_len - len(e['input_ids_assessment'])
+            e['attention_mask_assessment'] = \
+                [1] * len(e['input_ids_assessment']) + [0] * padding
+            e['input_ids_assessment'] += [self.tokenizer.pad_token_id] * padding
+        max_plan_len = max([len(e['input_ids_plan']) for e in examples])
         for e in examples:
-            padding = max_plan_len - len(e['plan'])
-            e['plan'] += [self.tokenizer.pad_token_id] * padding
+            padding = max_plan_len - len(e['input_ids_plan'])
+            e['attention_mask_plan'] = \
+                [1] * len(e['input_ids_plan']) + [0] * padding
+            e['input_ids_plan'] += [self.tokenizer.pad_token_id] * padding
 
         batch = {}
         for k in examples[0].keys():

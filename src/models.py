@@ -69,7 +69,10 @@ class BertSentenceRelation(BertBase):
         self.classifier = nn.ModuleList(cls_layers)
 
     def forward(self, batch):
-        pooler_output = self.bert.forward(batch['input'])['pooler_output']
+        pooler_output = self.bert.forward(
+            input_ids=batch['input_ids'],
+            attention_mask=batch['attention_mask']
+        )['pooler_output']
         features = self.cls_dropout(pooler_output)
         for l in self.classifier:
             features = l(features)
@@ -101,8 +104,14 @@ class BertSentenceSimilarity(BertBase):
         self.classifier = nn.ModuleList(cls_layers)
 
     def forward(self, batch):
-        assess_pooler_output = self.bert(batch['assessment'])['pooler_output']
-        plan_pooler_output = self.bert(batch['plan'])['pooler_output']
+        assess_pooler_output = self.bert(
+            input_ids=batch['input_ids_assessment'],
+            attention_mask=batch['attention_mask_assessment']
+        )['pooler_output']
+        plan_pooler_output = self.bert(
+            input_ids=batch['input_ids_plan'],
+            attention_mask=batch['attention_mask_plan']
+        )['pooler_output']
         concat_pooler = torch.cat([assess_pooler_output, plan_pooler_output],
                                   dim=1)
         features = self.cls_dropout(concat_pooler)
@@ -152,8 +161,14 @@ class BertSentenceSimilarity2(BertBase):
         return param_group
 
     def forward(self, batch):
-        assess_pooler_output = self.bert(batch['assessment'])['pooler_output']
-        plan_pooler_output = self.bert2(batch['plan'])['pooler_output']
+        assess_pooler_output = self.bert(
+            input_ids=batch['input_ids_assessment'],
+            attention_mask=batch['attention_mask_assessment']
+        )['pooler_output']
+        plan_pooler_output = self.bert2(
+            input_ids=batch['input_ids_plan'],
+            attention_mask=batch['attention_mask_plan']
+        )['pooler_output']
         concat_pooler = torch.cat([assess_pooler_output, plan_pooler_output],
                                   dim=1)
         features = self.cls_dropout(concat_pooler)
