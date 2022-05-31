@@ -19,6 +19,9 @@ data_pseudonymize=false
 exp_name="sent_rel_BlueBERT-Large"
 bert_name="bionlp/bluebert_pubmed_mimic_uncased_L-24_H-1024_A-16"
 batch_size=16
+#exp_name="sent_rel_bert-base-uncased"
+#bert_name="bert-base-uncased"
+#batch_size=32
 
 if [ "$data_pseudonymize" = true ]; then
     data_name="${data_name}_pseudo"

@@ -8,8 +8,8 @@ data_pseudonymize=false
 
 # Model
 model="bert_sent_sim"
-#weight_sharing=true
-weight_sharing=false
+weight_sharing=true
+#weight_sharing=false
 
 # Base BERT
 exp_name="sent_sim_PubMedBERT"
@@ -17,6 +17,9 @@ bert_name="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
 batch_size=32
 #exp_name="sent_sim_BioClinicalBERT"
 #bert_name="emilyalsentzer/Bio_ClinicalBERT"
+#batch_size=32
+#exp_name="sent_sim_bert-base-uncased"
+#bert_name="bert-base-uncased"
 #batch_size=32
 
 if [ "$data_pseudonymize" = true ]; then
