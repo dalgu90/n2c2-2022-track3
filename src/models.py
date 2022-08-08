@@ -12,13 +12,15 @@ import transformers
 from transformers import AutoModel
 
 
-def get_model(model, bert_name, num_cls_layers):
+def get_model(model, bert_name, num_classes, num_cls_layers):
     if model == "bert_sent_rel":
-        return BertSentenceRelation(bert_name, num_cls_layers)
+        return BertSentenceRelation(bert_name, num_classes, num_cls_layers)
     elif model == "bert_sent_sim":
-        return BertSentenceSimilarity(bert_name, num_cls_layers)
+        return BertSentenceSimilarity(bert_name, num_classes, num_cls_layers)
     elif model == "bert_sent_sim2":
-        return BertSentenceSimilarity2(bert_name, num_cls_layers)
+        return BertSentenceSimilarity2(bert_name, num_classes, num_cls_layers)
+    elif model == "longformer_sent_rel":
+        return LongformerSentenceRelation(bert_name, num_classes, num_cls_layers)
     else:
         raise ValueError('Invalid model name: %s', model)
 
@@ -52,7 +54,7 @@ class BertBase(nn.Module):
 
 class BertSentenceRelation(BertBase):
     """A sentence pair classification model for 2022 n2c2 Track 3"""
-    def __init__(self, bert_name, num_cls_layers):
+    def __init__(self, bert_name, num_classes, num_cls_layers):
         super().__init__(bert_name)
 
         # Define the classification header
@@ -62,15 +64,16 @@ class BertSentenceRelation(BertBase):
             if i != num_cls_layers - 1:
                 in_features = out_features = self.bert.config.hidden_size
             else:
-                in_features, out_features = self.bert.config.hidden_size, 4
+                in_features, out_features = self.bert.config.hidden_size, num_classes
             cls_layers.append(nn.Linear(in_features=in_features, out_features=out_features))
             if i != num_cls_layers - 1:
                 cls_layers.append(nn.ReLU())
         self.classifier = nn.ModuleList(cls_layers)
 
-    def forward(self, batch):
+    def forward(self, **batch):
         pooler_output = self.bert.forward(
             input_ids=batch['input_ids'],
+            token_type_ids=batch['token_type_ids'],
             attention_mask=batch['attention_mask']
         )['pooler_output']
         features = self.cls_dropout(pooler_output)
@@ -84,7 +87,7 @@ class BertSentenceSimilarity(BertBase):
 
     This model is the weight sharing version where the asseseement and plan are
     fed into the same BERT model."""
-    def __init__(self, bert_name, num_cls_layers):
+    def __init__(self, bert_name, num_classes, num_cls_layers):
         super().__init__(bert_name)
 
         # Define the classification header
@@ -97,13 +100,13 @@ class BertSentenceSimilarity(BertBase):
             elif i != num_cls_layers - 1:
                 in_features = out_features = self.bert.config.hidden_size
             else:
-                in_features, out_features = self.bert.config.hidden_size, 4
+                in_features, out_features = self.bert.config.hidden_size, num_classes
             cls_layers.append(nn.Linear(in_features=in_features, out_features=out_features))
             if i != num_cls_layers - 1:
                 cls_layers.append(nn.ReLU())
         self.classifier = nn.ModuleList(cls_layers)
 
-    def forward(self, batch):
+    def forward(self, **batch):
         assess_pooler_output = self.bert(
             input_ids=batch['input_ids_assessment'],
             attention_mask=batch['attention_mask_assessment']
@@ -125,7 +128,7 @@ class BertSentenceSimilarity2(BertBase):
 
     In this version, the assessment and plan are fed to BERT models that do not
     share weights."""
-    def __init__(self, bert_name, num_cls_layers):
+    def __init__(self, bert_name, num_classes, num_cls_layers):
         super().__init__(bert_name)
 
         # Load the 2nd BERT module
@@ -143,7 +146,7 @@ class BertSentenceSimilarity2(BertBase):
             elif i != num_cls_layers - 1:
                 in_features = out_features = self.bert.config.hidden_size
             else:
-                in_features, out_features = self.bert.config.hidden_size, 4
+                in_features, out_features = self.bert.config.hidden_size, num_classes
             cls_layers.append(nn.Linear(in_features=in_features, out_features=out_features))
             if i != num_cls_layers - 1:
                 cls_layers.append(nn.ReLU())
@@ -160,7 +163,7 @@ class BertSentenceSimilarity2(BertBase):
                            {'params': bert_params, 'lr_factor': finetune_factor}]
         return param_group
 
-    def forward(self, batch):
+    def forward(self, **batch):
         assess_pooler_output = self.bert(
             input_ids=batch['input_ids_assessment'],
             attention_mask=batch['attention_mask_assessment']
@@ -172,6 +175,47 @@ class BertSentenceSimilarity2(BertBase):
         concat_pooler = torch.cat([assess_pooler_output, plan_pooler_output],
                                   dim=1)
         features = self.cls_dropout(concat_pooler)
+        for l in self.classifier:
+            features = l(features)
+        return features
+
+
+class LongformerSentenceRelation(BertBase):
+    """A sentence pair classification model for 2022 n2c2 Track 3"""
+    def __init__(self, bert_name, num_classes, num_cls_layers):
+        super().__init__(bert_name)
+        type_vocab_size=128
+        self.bert.config.type_vocab_size = type_vocab_size
+        self.bert.embeddings.token_type_embeddings = nn.Embedding.from_pretrained(
+            self.bert.embeddings.token_type_embeddings.weight.repeat((type_vocab_size, 1))
+        )
+        attn_window = 32  # 8, 32, 128
+        self.bert.config.attention_window = [attn_window] * \
+            self.bert.config.num_hidden_layers
+        for l in self.bert.encoder.layer:
+            l.attention.self.one_sided_attn_window_size = attn_window // 2
+
+        # Define the classification header
+        self.cls_dropout = nn.Dropout(p=0.1)
+        cls_layers = []
+        for i in range(num_cls_layers):
+            if i != num_cls_layers - 1:
+                in_features = out_features = self.bert.config.hidden_size
+            else:
+                in_features, out_features = self.bert.config.hidden_size, num_classes
+            cls_layers.append(nn.Linear(in_features=in_features, out_features=out_features))
+            if i != num_cls_layers - 1:
+                cls_layers.append(nn.ReLU())
+        self.classifier = nn.ModuleList(cls_layers)
+
+    def forward(self, **batch):
+        pooler_output = self.bert.forward(
+            input_ids=batch['input_ids'],
+            global_attention_mask=batch['global_attention_mask'],
+            token_type_ids=batch['token_type_ids'],
+            attention_mask=batch['attention_mask']
+        )['pooler_output']
+        features = self.cls_dropout(pooler_output)
         for l in self.classifier:
             features = l(features)
         return features

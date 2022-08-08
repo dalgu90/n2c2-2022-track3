@@ -19,6 +19,7 @@ from tqdm import tqdm
 from src.datasets import get_dataset
 from src.models import get_model
 from src.utils.checkpoint_manager import CheckPointManager
+from src.parallel import DataParallelModel, DataParallelCriterion
 
 
 parser = argparse.ArgumentParser(description="Train and test the model")
@@ -32,13 +33,16 @@ parser.add_argument("--max_len", type=int, default=512)
 # Model
 parser.add_argument("--model", type=str, default="bert_sent_rel")
 parser.add_argument("--bert_name", type=str, default="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
+parser.add_argument("--num_classes", type=int, default=4)
 parser.add_argument("--num_cls_layers", type=int, default=3)
 parser.add_argument("--output_dir", type=str, default="results/bert_sim")
 parser.add_argument("--seed", type=int, default=123)
-parser.add_argument('--gpu', default=False, action='store_true')
+parser.add_argument('--num_gpus', type=int, default=1)
 # Optimization
 parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument('--train_bert', default=False, action='store_true')
+parser.add_argument('--shuffle_train', default=False, action='store_true')
+parser.add_argument('--no_shuffle_train', dest='shuffle_train', action='store_false')
 parser.add_argument("--bert_finetune_factor", type=float, default=0.1)
 parser.add_argument("--optimizer", type=str, default='adam')
 parser.add_argument("--adam_betas", type=str, default='(0.9, 0.999)')
@@ -47,6 +51,7 @@ parser.add_argument("--weight_decay", type=float, default=0.01)
 parser.add_argument("--training_step", type=int, default=10000)
 parser.add_argument("--display_iter", type=int, default=25)
 parser.add_argument("--eval_iter", type=int, default=1000)
+parser.add_argument("--ckpt_max_to_keep", type=int, default=5)
 parser.add_argument("--lr_scheduler", type=str, default='inverse_sqrt')
 parser.add_argument("--lr", type=float, nargs='+', default=[0.0001])
 parser.add_argument("--warmup_updates", type=int, default=10000)
@@ -75,11 +80,11 @@ def get_epoch_results(model, test_dataloader):
     """Perform the model forward on the whole epoch."""
     results = []
     for batch_test in tqdm(test_dataloader):
-        if args.gpu:
+        if args.num_gpus:
             for k in batch_test:
                 batch_test[k] = batch_test[k].cuda()
 
-        batch_logits = model(batch_test).cpu().numpy()
+        batch_logits = model(**batch_test).cpu().numpy()
         for i in range(len(batch_logits)):
             results.append({
                 'row_id': int(batch_test['row_id'][i]),
@@ -99,19 +104,14 @@ def main():
 
     # Dataset
     if not args.test:
-        train_dataset = get_dataset(dataset=args.dataset,
-                                    data_file=os.path.join(args.data_dir, args.train_file),
-                                    tokenizer_name=args.tokenizer_name,
-                                    max_len=args.max_len)
+        train_dataset = get_dataset(args, "train")
         train_dataloader = torch.utils.data.DataLoader(train_dataset,
+                                                       shuffle=args.shuffle_train,
                                                        batch_size=args.batch_size,
                                                        num_workers=4,  # 4 * args.num_gpus
                                                        collate_fn=train_dataset.collate_fn,
                                                        persistent_workers=True)
-        dev_dataset = get_dataset(dataset=args.dataset,
-                                  data_file=os.path.join(args.data_dir, args.dev_file),
-                                  tokenizer_name=args.tokenizer_name,
-                                  max_len=args.max_len)
+        dev_dataset = get_dataset(args, "dev")
         dev_dataloader = torch.utils.data.DataLoader(dev_dataset,
                                                      shuffle=False,
                                                      drop_last=False,
@@ -120,10 +120,7 @@ def main():
                                                      collate_fn=dev_dataset.collate_fn,
                                                      persistent_workers=True)
     else:
-        test_dataset = get_dataset(dataset=args.dataset,
-                                   data_file=os.path.join(args.data_dir, args.test_file),
-                                   tokenizer_name=args.tokenizer_name,
-                                   max_len=args.max_len)
+        test_dataset = get_dataset(args, "test")
         test_dataloader = torch.utils.data.DataLoader(test_dataset,
                                                       shuffle=False,
                                                       drop_last=False,
@@ -132,11 +129,14 @@ def main():
                                                       collate_fn=test_dataset.collate_fn)
 
     # Model
-    model = get_model(model=args.model, bert_name=args.bert_name, num_cls_layers=args.num_cls_layers)
+    model = get_model(model=args.model,
+                      bert_name=args.bert_name,
+                      num_classes=args.num_classes,
+                      num_cls_layers=args.num_cls_layers)
 
     # Checkpoint
     init_step = 0
-    ckpt_manager = CheckPointManager(args.output_dir)
+    ckpt_manager = CheckPointManager(args.output_dir, args.ckpt_max_to_keep)
     if args.init_ckpt is not None:
         print(f'Load model ckpt from {args.init_ckpt} (step {args.init_step})')
         model.load_state_dict(torch.load(os.path.join(args.output_dir, args.init_ckpt)))
@@ -155,13 +155,24 @@ def main():
         ckpt_manager.save_args(args)
 
     # Set cuda
-    if args.gpu:
-        model.cuda()
+    if args.num_gpus > 1:
+        model_train = DataParallelModel(model, device_ids=list(range(args.num_gpus)))
+    else:
+        model_train = model
+
+    if args.num_gpus:
+        model_train.cuda()
 
     # Train / test
     if not args.test:
         # Objective function
         criteria = torch.nn.CrossEntropyLoss()
+        if args.num_gpus > 1:
+            criteria_train = DataParallelCriterion(criteria,
+                                                   device_ids=list(range(args.num_gpus)))
+        else:
+            criteria_train = criteria
+
 
         # Optimizer and LR scheduler
         params = model.get_param_group(args.train_bert, args.bert_finetune_factor)
@@ -188,13 +199,13 @@ def main():
                 train_iter = iter(train_dataloader)
                 batch_train = next(train_iter)
 
-            if args.gpu:
+            if args.num_gpus:
                 for k in batch_train:
                     batch_train[k] = batch_train[k].cuda()
 
             # Model forward
-            output_logits = model.forward(batch_train)
-            loss = criteria(output_logits, target=batch_train['label'])
+            output_logits = model_train.forward(**batch_train)
+            loss = criteria_train(output_logits, target=batch_train['label'])
 
             # Model backward
             loss.backward()
@@ -205,6 +216,8 @@ def main():
             # Print the training progress per display_iter steps
             if global_step % args.display_iter == 0:
                 examples_per_sec = args.batch_size / duration
+                if isinstance(output_logits, list):
+                    output_logits = torch.cat([l.detach().cpu() for l in output_logits])
                 train_acc = np.mean(np.argmax(output_logits.detach().cpu().numpy(), axis=1) == batch_train['label'].cpu().numpy())
                 print_str = f'{datetime.now()}: (train) step {global_step:7}, loss={float(loss.cpu()):.6f}, acc={train_acc:.4f}'
                 writer.add_scalar('train/loss', float(loss.cpu()), global_step)
