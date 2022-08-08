@@ -143,7 +143,7 @@ logs/*.log
 
 # Dataset CSV files
 data/*
-!data/static
+!data/mimic3/section_title_cands.json
 
 # Pseudonymization
 scripts/pseudo_in/
